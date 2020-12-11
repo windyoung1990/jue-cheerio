@@ -2,12 +2,13 @@ const nodemailer = require('nodemailer');
 const schedule = require('node-schedule')
 const axios = require('axios').default;
 const config = require('./config');
+const cheerio = require('cheerio')
 let rule = new schedule.RecurrenceRule();
 
 rule.dayOfWeek = [5]
 
-rule.hour = 15;
-rule.minute = 12;
+rule.hour = 17;
+rule.minute = 0;
 rule.second = 0;
 const transporter = nodemailer.createTransport({
     service: 'QQ',
@@ -25,7 +26,7 @@ const mailOptions = {
     subject: '每周掘金热门',
     html: ''
 }
-function requstData() {
+function requstJuejinData() {
     let url = "https://api.juejin.cn/recommend_api/v1/article/recommend_cate_feed";
     let options = {
         sort_type: 7,
@@ -39,19 +40,49 @@ function requstData() {
         // console.log(data.data)
         let result = data.data.filter((article) => article.article_info.digg_count > 300);
         // mailOptions.h
-        let html = '';
+        let html = '<h3>掘金热门</h3>';
         for(var i = 0; i < result.length; i++) {
             let article = result[i];
             html += `<a href="${baseUrl + article.article_info.article_id}">${article.article_info.title}</a> ${article.article_info.digg_count}赞</br>`
         }
         console.log(html)
         // mailOptions.html = html
-        return html;
+        return Promise.resolve(html);
     })
 }
+function requestGithubData() {
+    let url = 'https://github.com/explore';
+    let baseUrl = "https://github.com/";
+    return axios.get(url).then((res) => {
+        let html = '<h3>github explore</h3>';
+        const $ = cheerio.load(res.data)
+        $('.social-count').each(function(i)  {
+            const text = $(this).text();
+            let star = text;
+            if (text.indexOf('k') > -1) {
+                star = text.replace(/k/ig, '') * 1000;
+            }
+            if (star > 500) {
+                const shortUrl =$(this).parents('article').find('a.text-bold').attr('href');
+                if (!shortUrl) {
+                    // continue;return
+                    return;
+                }
+                const url = baseUrl + shortUrl;
+                const content = shortUrl.slice(1)
+                html += `<a href="${url}">${content}</a> ${text}赞</br>`;
+                // console.log(html)
+            }
+        })
+        // console.log(html)
+        return Promise.resolve(html);
+    })
+
+}
+// requestGithubData();
 let job = schedule.scheduleJob(rule, () => {
-    requstData().then((res) => {
-        mailOptions.html = res;
+    Promise.all([requestGithubData(),requstJuejinData()]).then((values) => {
+        mailOptions.html = values.join('');
         transporter.sendMail(mailOptions, function(error, info) {
             if (error) {
                 return console.log(error);
@@ -59,4 +90,6 @@ let job = schedule.scheduleJob(rule, () => {
             console.log('Message sent: ' + JSON.stringify(info))
         })
     })
+})
+Promise.all([requestGithubData(),requstJuejinData()]).then((values) => {
 })
