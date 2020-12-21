@@ -64,13 +64,15 @@ function requestGithubData() {
             }
             if (star > 500) {
                 const shortUrl =$(this).parents('article').find('a.text-bold').attr('href');
+                const languageDom=$(this).parents('article').find('span[itemprop=programmingLanguage]');
+                let languaue = languageDom && languageDom.text() ? 'language:' + languageDom.text() : ''
                 if (!shortUrl) {
                     // continue;return
                     return;
                 }
                 const url = baseUrl + shortUrl;
                 const content = shortUrl.slice(1)
-                html += `<a href="${url}">${content}</a> ${text}赞</br>`;
+                html += `<a href="${url}">${content}</a> ${text}赞 ${languaue} </br> `;
                 // console.log(html)
             }
         })
@@ -79,7 +81,6 @@ function requestGithubData() {
     })
 
 }
-// requestGithubData();
 let job = schedule.scheduleJob(rule, () => {
     Promise.all([requestGithubData(),requstJuejinData()]).then((values) => {
         mailOptions.html = values.join('');
@@ -91,5 +92,12 @@ let job = schedule.scheduleJob(rule, () => {
         })
     })
 })
-Promise.all([requestGithubData(),requstJuejinData()]).then((values) => {
-})
+// Promise.all([requestGithubData(),requstJuejinData()]).then((values) => {
+//     mailOptions.html = values.join('');
+//     transporter.sendMail(mailOptions, function(error, info) {
+//         if (error) {
+//             return console.log(error);
+//         }
+//         console.log('Message sent: ' + JSON.stringify(info))
+//     })
+// })
